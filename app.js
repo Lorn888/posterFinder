@@ -1,4 +1,4 @@
-// Version: 1.1
+// Version: 1.2
 let video = document.getElementById('webcam');
 let startButton = document.getElementById('startButton');
 let result = document.getElementById('result');
@@ -14,12 +14,15 @@ async function loadFeatures() {
     posterFeatures = await response.json();
 
     for (let posterId in posterFeatures) {
-        boxMapping[posterId] = 3;
+        boxMapping[posterId] = 3; // All posters in Box 3
     }
 
     orb = new cv.ORB();
     bf = new cv.BFMatcher(cv.NORM_HAMMING, true);
+
     result.innerText = "✅ Features loaded! Click 'Start Camera' to begin.";
+    startButton.disabled = false;
+    startButton.innerText = "Start Camera";
 }
 
 // Convert descriptor array to cv.Mat
@@ -79,15 +82,15 @@ function scanPoster() {
 
     if (bestPoster) {
         result.innerText = `Poster: ${bestPoster}, Box: ${boxMapping[bestPoster]}`;
+    } else {
+        result.innerText = "No match detected yet...";
     }
 }
 
 // Start camera and scanning
 function startCamera() {
-    if (!orb || !bf) {
-        alert("OpenCV not ready yet. Please wait a moment.");
-        return;
-    }
+    startButton.disabled = true;
+    startButton.innerText = "Starting camera...";
 
     const constraints = {
         video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
@@ -99,7 +102,7 @@ function startCamera() {
             video.onloadeddata = () => {
                 result.innerText = "Camera ready! Scanning...";
                 scanningInterval = setInterval(scanPoster, 500);
-                startButton.style.display = "none";
+                startButton.style.display = "none"; // hide the button after starting
             };
         })
         .catch(err => {
