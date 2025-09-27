@@ -1,53 +1,27 @@
-let video = document.getElementById('camera');
+let video = document.getElementById('webcam');
+let startButton = document.getElementById('startButton');
 let result = document.getElementById('result');
+
 let posterFeatures;
 let boxMapping = {};
 let orb, bf;
 let scanningInterval;
 
+// Load poster features JSON
 async function loadFeatures() {
     const response = await fetch('poster_features.json');
     posterFeatures = await response.json();
 
     for (let posterId in posterFeatures) {
-        boxMapping[posterId] = 3; // all posters in Box 3
+        boxMapping[posterId] = 3; // All posters in box 3
     }
 
     orb = new cv.ORB();
     bf = new cv.BFMatcher(cv.NORM_HAMMING, true);
-    result.innerText = "✅ Features loaded! Point camera at a poster...";
+    result.innerText = "✅ Features loaded! Click 'Start Camera' to begin.";
 }
 
-function startCamera() {
-    const constraints = {
-        video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
-    };
-
-    navigator.mediaDevices.getUserMedia(constraints)
-        .then(stream => {
-            video.srcObject = stream;
-            video.onloadeddata = () => {
-                result.innerText = "Camera ready!";
-                startScanning();
-            };
-        })
-        .catch(err => {
-            console.warn("Rear camera not available, falling back:", err);
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    video.srcObject = stream;
-                    video.onloadeddata = () => {
-                        result.innerText = "Camera ready (fallback)!";
-                        startScanning();
-                    };
-                })
-                .catch(fallbackErr => {
-                    console.error("Camera access failed:", fallbackErr);
-                    alert("Camera access is required.");
-                });
-        });
-}
-
+// Convert descriptor array to cv.Mat
 function arrayToMat(array) {
     let rows = array.length;
     let cols = array[0].length;
@@ -58,6 +32,7 @@ function arrayToMat(array) {
     return mat;
 }
 
+// Match descriptors
 function matchDescriptors(des1, des2) {
     let matches = new cv.DMatchVector();
     bf.match(des1, des2, matches);
@@ -67,6 +42,7 @@ function matchDescriptors(des1, des2) {
     return scores.slice(0,10).reduce((a,b) => a+b,0);
 }
 
+// Scan the poster
 function scanPoster() {
     let cap = new cv.VideoCapture(video);
     let frame = new cv.Mat(video.height, video.width, cv.CV_8UC4);
@@ -105,12 +81,43 @@ function scanPoster() {
     }
 }
 
-function startScanning() {
-    if (scanningInterval) clearInterval(scanningInterval);
-    scanningInterval = setInterval(scanPoster, 1000); // scan every second
+// Start camera and scanning
+function startCamera() {
+    const constraints = {
+        video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
+        .then(stream => {
+            video.srcObject = stream;
+            video.onloadeddata = () => {
+                result.innerText = "Camera ready! Scanning...";
+                scanningInterval = setInterval(scanPoster, 1000);
+                startButton.style.display = "none"; // hide the button after starting
+            };
+        })
+        .catch(err => {
+            console.warn("Rear camera not available, falling back:", err);
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.onloadeddata = () => {
+                        result.innerText = "Camera ready (fallback)! Scanning...";
+                        scanningInterval = setInterval(scanPoster, 1000);
+                        startButton.style.display = "none";
+                    };
+                })
+                .catch(fallbackErr => {
+                    console.error("Camera access failed:", fallbackErr);
+                    alert("Camera access is required.");
+                });
+        });
 }
 
-// OpenCV runtime initialization
+// OpenCV runtime ready
 cv['onRuntimeInitialized'] = () => {
-    loadFeatures().then(startCamera);
+    loadFeatures();
 };
+
+// Button click starts camera
+startButton.addEventListener('click', startCamera);
