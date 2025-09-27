@@ -1,14 +1,24 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Poster Scanner</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poster Box Finder</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    h1 { margin-bottom: 10px; }
+    video { width: 90%; max-width: 400px; margin-top: 20px; border: 2px solid #444; border-radius: 8px; }
+    button { padding: 10px 20px; font-size: 16px; margin-top: 20px; }
+    p { font-size: 18px; margin-top: 20px; }
+  </style>
 </head>
 <body>
-  <h1>Poster Scanner</h1>
-  <video id="camera" autoplay playsinline width="640" height="480"></video>
-  <button id="scanBtn">Scan Poster</button>
-  <p id="result"></p>
+  <h1>Poster Box Finder</h1>
+  <button id="startButton">Start Camera</button>
+  <video id="webcam" autoplay playsinline></video>
+  <p id="result">Point at a poster...</p>
 
+  <!-- OpenCV.js -->
   <script async src="https://docs.opencv.org/4.7.0/opencv.js" type="text/javascript"></script>
   <script src="app.js"></script>
 </body>
