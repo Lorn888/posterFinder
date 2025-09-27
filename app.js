@@ -1,22 +1,25 @@
-// Version 1.7
-
-let modelReady = false;
+// Version 1.7 Fixed
 let webcamElement = document.getElementById("webcam");
 let startButton = document.getElementById("startButton");
 let result = document.getElementById("result");
 
-let posterFeatures = {}; // load from JSON
+let posterFeatures = {}; // to load your poster descriptors
 let boxMapping = {};
 let orb, bf;
 let scanningInterval;
 
-// OpenCV ready callback
+// ✅ OpenCV ready callback
 cv['onRuntimeInitialized'] = async () => {
-    console.log("✅ OpenCV.js ready!");
+    console.log("✅ OpenCV is ready!");
+
+    // Load poster features (replace with your JSON)
     await loadFeatures();
+
+    startButton.disabled = false;
+    result.innerText = "✅ Features loaded! Click 'Start Camera' to begin.";
 };
 
-// Load features JSON
+// Load poster features from JSON
 async function loadFeatures() {
     try {
         console.log("Attempting to load features...");
@@ -31,12 +34,9 @@ async function loadFeatures() {
             boxMapping[posterId] = 3;
         }
 
+        // Initialize OpenCV ORB and BFMatcher
         orb = new cv.ORB();
         bf = new cv.BFMatcher(cv.NORM_HAMMING, true);
-
-        result.innerText = "✅ Features loaded! Click 'Start Camera' to begin.";
-        startButton.disabled = false;
-        modelReady = true;
     } catch (err) {
         console.error("❌ Failed to load features:", err);
         result.innerText = "❌ Could not load features. Check console.";
@@ -64,9 +64,9 @@ function matchDescriptors(des1, des2) {
     return scores.slice(0,10).reduce((a,b) => a+b,0);
 }
 
-// Scan frame
+// Scan current frame from webcam
 function scanPoster() {
-    if (!modelReady) return;
+    if (!posterFeatures || Object.keys(posterFeatures).length === 0) return;
 
     let cap = new cv.VideoCapture(webcamElement);
     let frame = new cv.Mat(webcamElement.videoHeight, webcamElement.videoWidth, cv.CV_8UC4);
@@ -105,15 +105,11 @@ function scanPoster() {
     }
 }
 
-// Start camera (same flow as Teachable Machine version)
+// Start camera (Teachable Machine flow)
 async function startCamera() {
-    if (!modelReady) {
-        alert("Model not ready yet.");
-        return;
-    }
-
     const constraints = {
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
     };
 
     try {
@@ -124,17 +120,17 @@ async function startCamera() {
             result.innerText = "Camera ready! Scanning...";
             scanningInterval = setInterval(scanPoster, 1000);
         };
-    } catch(err) {
+    } catch (err) {
         console.warn("Rear camera not available, falling back:", err);
         try {
-            const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             webcamElement.srcObject = fallbackStream;
             webcamElement.onloadeddata = () => {
                 startButton.style.display = "none";
                 result.innerText = "Camera ready (fallback)! Scanning...";
                 scanningInterval = setInterval(scanPoster, 1000);
             };
-        } catch(fallbackErr) {
+        } catch (fallbackErr) {
             console.error("Camera access failed:", fallbackErr);
             alert("Camera access is required to use this app.");
         }
