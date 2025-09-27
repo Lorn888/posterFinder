@@ -1,9 +1,10 @@
-// Version 1.7 Fixed
+// Version 1.8
+
 let webcamElement = document.getElementById("webcam");
 let startButton = document.getElementById("startButton");
 let result = document.getElementById("result");
 
-let posterFeatures = {}; // to load your poster descriptors
+let posterFeatures = {}; // To load your poster descriptors
 let boxMapping = {};
 let orb, bf;
 let scanningInterval;
@@ -12,7 +13,7 @@ let scanningInterval;
 cv['onRuntimeInitialized'] = async () => {
     console.log("✅ OpenCV is ready!");
 
-    // Load poster features (replace with your JSON)
+    // Load poster features JSON
     await loadFeatures();
 
     startButton.disabled = false;
@@ -34,7 +35,7 @@ async function loadFeatures() {
             boxMapping[posterId] = 3;
         }
 
-        // Initialize OpenCV ORB and BFMatcher
+        // Initialize ORB detector and BFMatcher
         orb = new cv.ORB();
         bf = new cv.BFMatcher(cv.NORM_HAMMING, true);
     } catch (err) {
@@ -77,6 +78,9 @@ function scanPoster() {
     let des = new cv.Mat();
     orb.detectAndCompute(frame, new cv.Mat(), kp, des);
 
+    // 🔹 Debug: log number of descriptors found
+    console.log("Descriptors found:", des.rows);
+
     if (des.rows === 0) {
         frame.delete(); des.delete(); kp.delete();
         return;
@@ -102,6 +106,8 @@ function scanPoster() {
 
     if (bestPoster) {
         result.innerText = `Poster: ${bestPoster}, Box: ${boxMapping[bestPoster]}`;
+    } else {
+        result.innerText = "Poster not recognized yet...";
     }
 }
 
