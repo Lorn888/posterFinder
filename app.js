@@ -1,4 +1,4 @@
-// Version 1.8
+// Version 1.9
 
 let webcamElement = document.getElementById("webcam");
 let startButton = document.getElementById("startButton");
@@ -70,8 +70,13 @@ function scanPoster() {
     if (!posterFeatures || Object.keys(posterFeatures).length === 0) return;
 
     let cap = new cv.VideoCapture(webcamElement);
-    let frame = new cv.Mat(webcamElement.videoHeight, webcamElement.videoWidth, cv.CV_8UC4);
+    let frame = new cv.Mat(); // Let OpenCV handle the size
     cap.read(frame);
+    if (frame.empty()) {
+        frame.delete();
+        return;
+    }
+
     cv.cvtColor(frame, frame, cv.COLOR_RGBA2GRAY);
 
     let kp = new cv.KeyPointVector();
