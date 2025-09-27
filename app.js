@@ -1,25 +1,34 @@
-// Version: 1.4
-let video = document.getElementById('webcam');
-let startButton = document.getElementById('startButton');
-let result = document.getElementById('result');
+// Version 1.7
 
-let posterFeatures;
+let modelReady = false;
+let webcamElement = document.getElementById("webcam");
+let startButton = document.getElementById("startButton");
+let result = document.getElementById("result");
+
+let posterFeatures = {}; // load from JSON
 let boxMapping = {};
 let orb, bf;
 let scanningInterval;
 
-// Load poster features JSON
+// OpenCV ready callback
+cv['onRuntimeInitialized'] = async () => {
+    console.log("✅ OpenCV.js ready!");
+    await loadFeatures();
+};
+
+// Load features JSON
 async function loadFeatures() {
     try {
         console.log("Attempting to load features...");
-        const response = await fetch('poster_features.json');
+        const response = await fetch("poster_features.json");
         if (!response.ok) throw new Error("HTTP error " + response.status);
 
         posterFeatures = await response.json();
         console.log("✅ Features loaded:", Object.keys(posterFeatures));
 
+        // Map all posters to box 3 for now
         for (let posterId in posterFeatures) {
-            boxMapping[posterId] = 3; // hardcode box 3 for now
+            boxMapping[posterId] = 3;
         }
 
         orb = new cv.ORB();
@@ -27,21 +36,21 @@ async function loadFeatures() {
 
         result.innerText = "✅ Features loaded! Click 'Start Camera' to begin.";
         startButton.disabled = false;
-        startButton.innerText = "Start Camera";
+        modelReady = true;
     } catch (err) {
         console.error("❌ Failed to load features:", err);
         result.innerText = "❌ Could not load features. Check console.";
     }
 }
 
-// Convert descriptor array to cv.Mat
-function arrayToMat(array) {
-    let rows = array.length;
-    let cols = array[0].length;
-    let mat = cv.Mat.zeros(rows, cols, cv.CV_8U);
+// Convert array to cv.Mat
+function arrayToMat(arr) {
+    let rows = arr.length;
+    let cols = arr[0].length;
+    let mat = new cv.Mat(rows, cols, cv.CV_8U);
     for (let i = 0; i < rows; i++)
         for (let j = 0; j < cols; j++)
-            mat.ucharPtr(i, j)[0] = array[i][j];
+            mat.ucharPtr(i, j)[0] = arr[i][j];
     return mat;
 }
 
@@ -55,10 +64,12 @@ function matchDescriptors(des1, des2) {
     return scores.slice(0,10).reduce((a,b) => a+b,0);
 }
 
-// Scan the poster
+// Scan frame
 function scanPoster() {
-    let cap = new cv.VideoCapture(video);
-    let frame = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+    if (!modelReady) return;
+
+    let cap = new cv.VideoCapture(webcamElement);
+    let frame = new cv.Mat(webcamElement.videoHeight, webcamElement.videoWidth, cv.CV_8UC4);
     cap.read(frame);
     cv.cvtColor(frame, frame, cv.COLOR_RGBA2GRAY);
 
@@ -94,10 +105,10 @@ function scanPoster() {
     }
 }
 
-// Start camera and scanning
-function startCamera() {
-    if (!orb || !bf) {
-        alert("OpenCV not ready yet. Please wait a moment.");
+// Start camera (same flow as Teachable Machine version)
+async function startCamera() {
+    if (!modelReady) {
+        alert("Model not ready yet.");
         return;
     }
 
@@ -105,38 +116,30 @@ function startCamera() {
         video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
     };
 
-    navigator.mediaDevices.getUserMedia(constraints)
-        .then(stream => {
-            video.srcObject = stream;
-            video.onloadeddata = () => {
-                result.innerText = "Camera ready! Scanning...";
-                scanningInterval = setInterval(scanPoster, 1000);
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        webcamElement.srcObject = stream;
+        webcamElement.onloadeddata = () => {
+            startButton.style.display = "none";
+            result.innerText = "Camera ready! Scanning...";
+            scanningInterval = setInterval(scanPoster, 1000);
+        };
+    } catch(err) {
+        console.warn("Rear camera not available, falling back:", err);
+        try {
+            const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            webcamElement.srcObject = fallbackStream;
+            webcamElement.onloadeddata = () => {
                 startButton.style.display = "none";
+                result.innerText = "Camera ready (fallback)! Scanning...";
+                scanningInterval = setInterval(scanPoster, 1000);
             };
-        })
-        .catch(err => {
-            console.warn("Rear camera not available, falling back:", err);
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    video.srcObject = stream;
-                    video.onloadeddata = () => {
-                        result.innerText = "Camera ready (fallback)! Scanning...";
-                        scanningInterval = setInterval(scanPoster, 1000);
-                        startButton.style.display = "none";
-                    };
-                })
-                .catch(fallbackErr => {
-                    console.error("Camera access failed:", fallbackErr);
-                    alert("Camera access is required.");
-                });
-        });
+        } catch(fallbackErr) {
+            console.error("Camera access failed:", fallbackErr);
+            alert("Camera access is required to use this app.");
+        }
+    }
 }
 
-// OpenCV runtime ready → then load features
-cv['onRuntimeInitialized'] = () => {
-    console.log("✅ OpenCV.js is ready!");
-    loadFeatures();
-};
-
-// Button click starts camera
-startButton.addEventListener('click', startCamera);
+// Button click
+startButton.addEventListener("click", startCamera);
