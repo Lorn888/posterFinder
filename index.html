@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Poster Box Finder (v1.7)</title>
+  <title>Poster Box Finder (v1.7 fixed)</title>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
     h1 { margin-bottom: 10px; }
@@ -14,13 +14,14 @@
 </head>
 <body>
   <h1>Poster Box Finder</h1>
-  <button id="startButton">Start Camer!!a</button>
+  <button id="startButton">Start Camera</button>
   <video id="webcam" autoplay playsinline></video>
   <p id="result">Point at a poster...</p>
 
-  <!-- OpenCV.js -->
-  <script async src="https://docs.opencv.org/4.7.0/opencv.js"></script>
-  <!-- Custom Script -->
+  <!-- Load OpenCV.js synchronously -->
+  <script src="https://docs.opencv.org/4.7.0/opencv.js"></script>
+
+  <!-- Custom script -->
   <script src="app.js"></script>
 </body>
 </html>
