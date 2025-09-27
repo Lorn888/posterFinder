@@ -1,4 +1,4 @@
-<!-- Version: 1.2 -->
+<!-- Version: 1.4 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,12 +15,13 @@
 </head>
 <body>
   <h1>Poster Box Finder</h1>
-  <button id="startButton" disabled>Loading...</button>
+  <button id="startButton" disabled>Loading features...</button>
   <video id="webcam" autoplay playsinline></video>
   <p id="result">Loading features, please wait...</p>
 
-  <!-- OpenCV.js -->
+  <!-- Load OpenCV.js first -->
   <script async src="https://docs.opencv.org/4.7.0/opencv.js" type="text/javascript"></script>
+  <!-- Then load your app -->
   <script src="app.js"></script>
 </body>
 </html>
