@@ -1,4 +1,4 @@
-// Version: 1.2
+// Version: 1.4
 let video = document.getElementById('webcam');
 let startButton = document.getElementById('startButton');
 let result = document.getElementById('result');
@@ -10,19 +10,28 @@ let scanningInterval;
 
 // Load poster features JSON
 async function loadFeatures() {
-    const response = await fetch('poster_features.json');
-    posterFeatures = await response.json();
+    try {
+        console.log("Attempting to load features...");
+        const response = await fetch('poster_features.json');
+        if (!response.ok) throw new Error("HTTP error " + response.status);
 
-    for (let posterId in posterFeatures) {
-        boxMapping[posterId] = 3; // All posters in Box 3
+        posterFeatures = await response.json();
+        console.log("✅ Features loaded:", Object.keys(posterFeatures));
+
+        for (let posterId in posterFeatures) {
+            boxMapping[posterId] = 3; // hardcode box 3 for now
+        }
+
+        orb = new cv.ORB();
+        bf = new cv.BFMatcher(cv.NORM_HAMMING, true);
+
+        result.innerText = "✅ Features loaded! Click 'Start Camera' to begin.";
+        startButton.disabled = false;
+        startButton.innerText = "Start Camera";
+    } catch (err) {
+        console.error("❌ Failed to load features:", err);
+        result.innerText = "❌ Could not load features. Check console.";
     }
-
-    orb = new cv.ORB();
-    bf = new cv.BFMatcher(cv.NORM_HAMMING, true);
-
-    result.innerText = "✅ Features loaded! Click 'Start Camera' to begin.";
-    startButton.disabled = false;
-    startButton.innerText = "Start Camera";
 }
 
 // Convert descriptor array to cv.Mat
@@ -82,15 +91,15 @@ function scanPoster() {
 
     if (bestPoster) {
         result.innerText = `Poster: ${bestPoster}, Box: ${boxMapping[bestPoster]}`;
-    } else {
-        result.innerText = "No match detected yet...";
     }
 }
 
 // Start camera and scanning
 function startCamera() {
-    startButton.disabled = true;
-    startButton.innerText = "Starting camera...";
+    if (!orb || !bf) {
+        alert("OpenCV not ready yet. Please wait a moment.");
+        return;
+    }
 
     const constraints = {
         video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
@@ -101,8 +110,8 @@ function startCamera() {
             video.srcObject = stream;
             video.onloadeddata = () => {
                 result.innerText = "Camera ready! Scanning...";
-                scanningInterval = setInterval(scanPoster, 500);
-                startButton.style.display = "none"; // hide the button after starting
+                scanningInterval = setInterval(scanPoster, 1000);
+                startButton.style.display = "none";
             };
         })
         .catch(err => {
@@ -112,7 +121,7 @@ function startCamera() {
                     video.srcObject = stream;
                     video.onloadeddata = () => {
                         result.innerText = "Camera ready (fallback)! Scanning...";
-                        scanningInterval = setInterval(scanPoster, 500);
+                        scanningInterval = setInterval(scanPoster, 1000);
                         startButton.style.display = "none";
                     };
                 })
@@ -123,8 +132,9 @@ function startCamera() {
         });
 }
 
-// OpenCV runtime ready
+// OpenCV runtime ready → then load features
 cv['onRuntimeInitialized'] = () => {
+    console.log("✅ OpenCV.js is ready!");
     loadFeatures();
 };
 
