@@ -3,31 +3,52 @@ let result = document.getElementById('result');
 let posterFeatures;
 let boxMapping = {};
 let orb, bf;
+let scanningInterval;
 
 async function loadFeatures() {
     const response = await fetch('poster_features.json');
     posterFeatures = await response.json();
 
-    // Map all posters in box 3
     for (let posterId in posterFeatures) {
-        boxMapping[posterId] = 3;
+        boxMapping[posterId] = 3; // all posters in Box 3
     }
 
-    // Initialize ORB and BFMatcher
     orb = new cv.ORB();
     bf = new cv.BFMatcher(cv.NORM_HAMMING, true);
+    result.innerText = "✅ Features loaded! Point camera at a poster...";
 }
 
 function startCamera() {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    const constraints = {
+        video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
         .then(stream => {
             video.srcObject = stream;
+            video.onloadeddata = () => {
+                result.innerText = "Camera ready!";
+                startScanning();
+            };
         })
-        .catch(err => console.error(err));
+        .catch(err => {
+            console.warn("Rear camera not available, falling back:", err);
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.onloadeddata = () => {
+                        result.innerText = "Camera ready (fallback)!";
+                        startScanning();
+                    };
+                })
+                .catch(fallbackErr => {
+                    console.error("Camera access failed:", fallbackErr);
+                    alert("Camera access is required.");
+                });
+        });
 }
 
 function arrayToMat(array) {
-    // Convert JS array to cv.Mat (uint8)
     let rows = array.length;
     let cols = array[0].length;
     let mat = cv.Mat.zeros(rows, cols, cv.CV_8U);
@@ -41,11 +62,9 @@ function matchDescriptors(des1, des2) {
     let matches = new cv.DMatchVector();
     bf.match(des1, des2, matches);
     let scores = [];
-    for (let i = 0; i < matches.size(); i++) {
-        scores.push(matches.get(i).distance);
-    }
+    for (let i = 0; i < matches.size(); i++) scores.push(matches.get(i).distance);
     scores.sort((a,b) => a-b);
-    return scores.slice(0,10).reduce((a,b) => a+b,0); // sum of 10 best
+    return scores.slice(0,10).reduce((a,b) => a+b,0);
 }
 
 function scanPoster() {
@@ -54,13 +73,11 @@ function scanPoster() {
     cap.read(frame);
     cv.cvtColor(frame, frame, cv.COLOR_RGBA2GRAY);
 
-    // Detect keypoints and descriptors
     let kp = new cv.KeyPointVector();
     let des = new cv.Mat();
     orb.detectAndCompute(frame, new cv.Mat(), kp, des);
 
     if (des.rows === 0) {
-        result.innerText = "Could not detect poster.";
         frame.delete(); des.delete(); kp.delete();
         return;
     }
@@ -68,7 +85,6 @@ function scanPoster() {
     let bestPoster = null;
     let bestScore = Infinity;
 
-    // Compare with all posters in JSON
     for (let posterId in posterFeatures) {
         let descriptorArrays = posterFeatures[posterId];
         for (let arr of descriptorArrays) {
@@ -86,14 +102,15 @@ function scanPoster() {
 
     if (bestPoster) {
         result.innerText = `Poster: ${bestPoster}, Box: ${boxMapping[bestPoster]}`;
-    } else {
-        result.innerText = "No match found.";
     }
 }
 
-// Load OpenCV, features, start camera
-cv['onRuntimeInitialized'] = () => {
-    loadFeatures().then(startCamera);
+function startScanning() {
+    if (scanningInterval) clearInterval(scanningInterval);
+    scanningInterval = setInterval(scanPoster, 1000); // scan every second
 }
 
-document.getElementById('scanBtn').addEventListener('click', scanPoster);
+// OpenCV runtime initialization
+cv['onRuntimeInitialized'] = () => {
+    loadFeatures().then(startCamera);
+};
