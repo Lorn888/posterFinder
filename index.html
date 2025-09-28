@@ -3,25 +3,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Poster Box Finder (v1.7 fixed)</title>
+  <title>ORB Live Test</title>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-    h1 { margin-bottom: 10px; }
     video { width: 90%; max-width: 400px; margin-top: 20px; border: 2px solid #444; border-radius: 8px; }
     button { padding: 10px 20px; font-size: 16px; margin-top: 20px; }
     p { font-size: 18px; margin-top: 20px; }
   </style>
 </head>
 <body>
-  <h1>Poster Box Finder</h1>
+  <h1>ORB Live Test</h1>
   <button id="startButton">Start Camera</button>
   <video id="webcam" autoplay playsinline></video>
-  <p id="result">Point at a poster...</p>
+  <p id="log">Press "Start Camera" to begin.</p>
 
-  <!-- Load OpenCV.js synchronously -->
-  <script src="https://docs.opencv.org/4.7.0/opencv.js"></script>
+  <!-- OpenCV.js -->
+  <script async src="https://docs.opencv.org/4.8.1/opencv.js" type="text/javascript"></script>
 
-  <!-- Custom script -->
-  <script src="app.js"></script>
+  <script>
+  cv['onRuntimeInitialized'] = () => {
+    console.log("✅ OpenCV ready!");
+    let video = document.getElementById("webcam");
+    let startButton = document.getElementById("startButton");
+    let log = document.getElementById("log");
+
+    startButton.addEventListener("click", async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        video.srcObject = stream;
+
+        video.onloadeddata = () => {
+          log.innerText = "Camera ready! Scanning...";
+          let orb = new cv.ORB(); // default settings, can tweak later
+          let cap = new cv.VideoCapture(video);
+
+          setInterval(() => {
+            let frame = new cv.Mat();
+            cap.read(frame);
+            if (frame.empty()) {
+              frame.delete();
+              return;
+            }
+
+            cv.cvtColor(frame, frame, cv.COLOR_RGBA2GRAY);
+
+            let kp = new cv.KeyPointVector();
+            let des = new cv.Mat();
+            orb.detectAndCompute(frame, new cv.Mat(), kp, des);
+
+            log.innerText = `Keypoints: ${kp.size()} | Descriptors: ${des.rows}`;
+            console.log(`Keypoints: ${kp.size()} | Descriptors: ${des.rows}`);
+
+            frame.delete(); des.delete(); kp.delete();
+          }, 1000); // scan every second
+        };
+      } catch (err) {
+        console.error("Camera access failed:", err);
+        alert("Camera access is required to test ORB.");
+      }
+    });
+  };
+  </script>
 </body>
 </html>
