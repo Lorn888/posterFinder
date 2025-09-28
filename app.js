@@ -1,4 +1,4 @@
-// Version 2.0
+// Version 2.1
 
 let webcamElement = document.getElementById("webcam");
 let startButton = document.getElementById("startButton");
@@ -62,7 +62,6 @@ function matchDescriptors(des1, des2) {
     let scores = [];
     for (let i = 0; i < matches.size(); i++) scores.push(matches.get(i).distance);
     scores.sort((a, b) => a - b);
-    // Return sum of best 10 (lower is better)
     return scores.slice(0, 10).reduce((a, b) => a + b, 0);
 }
 
@@ -73,10 +72,14 @@ function scanPoster() {
     let cap = new cv.VideoCapture(webcamElement);
     let frame = new cv.Mat();
     cap.read(frame);
+
     if (frame.empty()) {
         frame.delete();
+        console.warn("⚠️ Empty frame from camera");
         return;
     }
+
+    console.log("Frame type:", frame.type()); // 🔹 Check type (should be 24 / CV_8UC4)
 
     cv.cvtColor(frame, frame, cv.COLOR_RGBA2GRAY);
 
@@ -84,10 +87,11 @@ function scanPoster() {
     let des = new cv.Mat();
     orb.detectAndCompute(frame, new cv.Mat(), kp, des);
 
-    console.log("Descriptors found:", des.rows);
+    console.log("Keypoints:", kp.size(), "Descriptors:", des.rows); // 🔹 Debug
 
     if (des.rows === 0) {
         frame.delete(); des.delete(); kp.delete();
+        result.innerText = "⚠️ No features found in frame";
         return;
     }
 
@@ -100,7 +104,7 @@ function scanPoster() {
             let mat = arrayToMat(arr);
             let score = matchDescriptors(des, mat);
 
-            console.log(`Poster ${posterId} score: ${score}`); // 🔹 Debug log
+            console.log(`Poster ${posterId} score: ${score}`); // 🔹 Debug
 
             mat.delete();
             if (score < bestScore) {
@@ -112,7 +116,7 @@ function scanPoster() {
 
     frame.delete(); des.delete(); kp.delete();
 
-    if (bestPoster && bestScore < 500) {  // 👈 threshold, tune as needed
+    if (bestPoster && bestScore < 500) { // threshold, adjust as needed
         result.innerText = `Poster: ${bestPoster}, Box: ${boxMapping[bestPoster]} (score: ${bestScore})`;
     } else {
         result.innerText = `Poster not recognized (best score: ${bestScore})`;
