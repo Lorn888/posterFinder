@@ -1,4 +1,4 @@
-// Version 1.9
+// Version 2.0
 
 let webcamElement = document.getElementById("webcam");
 let startButton = document.getElementById("startButton");
@@ -61,8 +61,9 @@ function matchDescriptors(des1, des2) {
     bf.match(des1, des2, matches);
     let scores = [];
     for (let i = 0; i < matches.size(); i++) scores.push(matches.get(i).distance);
-    scores.sort((a,b) => a-b);
-    return scores.slice(0,10).reduce((a,b) => a+b,0);
+    scores.sort((a, b) => a - b);
+    // Return sum of best 10 (lower is better)
+    return scores.slice(0, 10).reduce((a, b) => a + b, 0);
 }
 
 // Scan current frame from webcam
@@ -70,7 +71,7 @@ function scanPoster() {
     if (!posterFeatures || Object.keys(posterFeatures).length === 0) return;
 
     let cap = new cv.VideoCapture(webcamElement);
-    let frame = new cv.Mat(); // Let OpenCV handle the size
+    let frame = new cv.Mat();
     cap.read(frame);
     if (frame.empty()) {
         frame.delete();
@@ -83,7 +84,6 @@ function scanPoster() {
     let des = new cv.Mat();
     orb.detectAndCompute(frame, new cv.Mat(), kp, des);
 
-    // 🔹 Debug: log number of descriptors found
     console.log("Descriptors found:", des.rows);
 
     if (des.rows === 0) {
@@ -99,6 +99,9 @@ function scanPoster() {
         for (let arr of descriptorArrays) {
             let mat = arrayToMat(arr);
             let score = matchDescriptors(des, mat);
+
+            console.log(`Poster ${posterId} score: ${score}`); // 🔹 Debug log
+
             mat.delete();
             if (score < bestScore) {
                 bestScore = score;
@@ -109,14 +112,14 @@ function scanPoster() {
 
     frame.delete(); des.delete(); kp.delete();
 
-    if (bestPoster) {
-        result.innerText = `Poster: ${bestPoster}, Box: ${boxMapping[bestPoster]}`;
+    if (bestPoster && bestScore < 500) {  // 👈 threshold, tune as needed
+        result.innerText = `Poster: ${bestPoster}, Box: ${boxMapping[bestPoster]} (score: ${bestScore})`;
     } else {
-        result.innerText = "Poster not recognized yet...";
+        result.innerText = `Poster not recognized (best score: ${bestScore})`;
     }
 }
 
-// Start camera (Teachable Machine flow)
+// Start camera
 async function startCamera() {
     const constraints = {
         video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
